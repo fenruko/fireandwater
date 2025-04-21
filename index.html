@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fire & Water Quest</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
+  <!-- Switch to Firebase v8 which works with the code structure -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-database.js"></script>
   <style>
     body {
       margin: 0;
@@ -31,21 +32,7 @@
 <body>
   <div id="status">Waiting for both players...</div>
   <script>
-    // Firebase configuration (replace with your Firebase project details)
-  const firebaseConfig = {
-   apiKey: "AIzaSyCSstPVDn0wy70ltC74EqgXfl3tBFgAMgw",
-   authDomain: "fire-and-water-82e95.firebaseapp.com",
-   databaseURL: "https://fire-and-water-82e95-default-rtdb.firebaseio.com",
-   projectId: "fire-and-water-82e95",
-   storageBucket: "fire-and-water-82e95.firebasestorage.app",
-   messagingSenderId: "1072918724623",
-   appId: "1:1072918724623:web:b1889017f1202d3e6ea37a"
- };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
+    // Declare variables at the top to avoid reference errors
     let playerId;
     let playerType; // 'fireboy' or 'watergirl'
     let players = {};
@@ -53,7 +40,26 @@
     let hazards = [];
     let portal;
     let gameState = 'waiting';
-    let sessionId = new URLSearchParams(window.location.search).get('session') || 'default';
+    let sessionId;
+    let db;
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCSstPVDn0wy70ltC74EqgXfl3tBFgAMgw",
+      authDomain: "fire-and-water-82e95.firebaseapp.com",
+      databaseURL: "https://fire-and-water-82e95-default-rtdb.firebaseio.com",
+      projectId: "fire-and-water-82e95",
+      storageBucket: "fire-and-water-82e95.firebasestorage.app",
+      messagingSenderId: "1072918724623",
+      appId: "1:1072918724623:web:b1889017f1202d3e6ea37a"
+    };
+
+    // Initialize Firebase before using it
+    function initFirebase() {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      sessionId = new URLSearchParams(window.location.search).get('session') || 'default';
+    }
 
     // Detect player type based on URL or first connection
     function initializePlayer() {
@@ -71,12 +77,14 @@
         y: 500,
         vx: 0,
         vy: 0,
+        onGround: true,
         type: playerType
       });
     }
 
     function setup() {
       createCanvas(800, 600);
+      initFirebase(); // Initialize Firebase first
       initializePlayer();
       loadLevel();
       // Listen for player data
@@ -127,7 +135,8 @@
     }
 
     function keyPressed() {
-      if (gameState !== 'playing') return;
+      if (gameState !== 'playing' || !playerId || !players[playerId]) return;
+      
       let playerRef = db.ref(`sessions/${sessionId}/players/${playerId}`);
       if (playerId === 'player1' && key === 'w' && players[playerId].onGround) {
         playerRef.update({ vy: -15, onGround: false });
@@ -138,9 +147,10 @@
     }
 
     function updatePlayer() {
+      if (!players[playerId]) return;
+      
       let playerRef = db.ref(`sessions/${sessionId}/players/${playerId}`);
       let p = players[playerId];
-      if (!p) return;
       // Apply gravity
       let vy = p.vy + 0.5;
       let vx = 0;
